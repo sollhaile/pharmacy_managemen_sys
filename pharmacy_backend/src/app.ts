@@ -14,6 +14,10 @@ import alertRoutes from './routes/alert.routes'; //
 import wastageRoutes from './routes/wastage.routes';
 import returnRoutes from './routes/return.routes';
 import supplierOrderRoutes from './routes/supplier-order.routes';
+import customerRoutes from './routes/customer.routes';
+
+
+
 
 dotenv.config();
 
@@ -45,6 +49,8 @@ app.use('/api/alerts', alertRoutes); // ✅ ADD THIS
 app.use('/api/wastage', wastageRoutes);
 app.use('/api/returns', returnRoutes);
 app.use('/api/supplier-orders', supplierOrderRoutes);
+app.use('/api/customers', customerRoutes);
+
 
 
 
