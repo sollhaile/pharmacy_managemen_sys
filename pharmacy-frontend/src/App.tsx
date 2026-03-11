@@ -3,7 +3,11 @@ import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { CartProvider } from './context/CartContext';
-
+declare const process: {
+  env: {
+    NODE_ENV: string;
+  };
+};
 
 
 // Layout
@@ -24,6 +28,8 @@ import Reports from './pages/reports/Reports';
 import Login from './pages/auth/Login';
 import Wastage from './pages/inventory/Wastage';
 import WastagePage from './pages/inventory/Wastage';
+
+
 
 
 
@@ -57,7 +63,10 @@ function App() {
               <Route path="reports" element={<Reports />} />
               <Route path="inventory/wastage" element={<Wastage />} />
               <Route path="inventory/wastage" element={<WastagePage />} />
-            </Route>
+              </Route>
+               <Route path="customers" element={<Customers />} />
+               <Route path="suppliers" element={<Suppliers />} />
+              <Route path="reports" element={<Reports />} />
           </Routes>
         </Router>
         <Toaster position="top-right" />

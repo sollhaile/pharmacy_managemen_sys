@@ -54,15 +54,12 @@ const calculateDaysUntilExpiry = (expiryDate: string): number => {
   return diffDays;
 };
 
-// Helper function to determine expiry status with new thresholds:
-// CRITICAL = ≤ 180 days (6 months)
-// WARNING = 181-365 days (6-12 months)
-// GOOD = > 365 days (1 year+)
+// Helper function to determine expiry status
 const getExpiryStatus = (days: number): 'GOOD' | 'WARNING' | 'CRITICAL' | 'EXPIRED' => {
   if (days < 0) return 'EXPIRED';
-  if (days <= 180) return 'CRITICAL';     // 6 months or less = CRITICAL
-  if (days <= 365) return 'WARNING';      // 6-12 months = WARNING
-  return 'GOOD';                           // More than 1 year = GOOD
+  if (days <= 30) return 'CRITICAL';
+  if (days <= 90) return 'WARNING';
+  return 'GOOD';
 };
 
 export const batchService = {
@@ -70,21 +67,6 @@ export const batchService = {
   getAll: async () => {
     try {
       const response = await axiosInstance.get('/batches');
-      
-      if (response.data.success) {
-        // Calculate expiry status for each batch
-        const batches = (response.data.data || []).map((batch: Batch) => {
-          const daysUntilExpiry = calculateDaysUntilExpiry(batch.expiry_date);
-          return {
-            ...batch,
-            days_until_expiry: daysUntilExpiry,
-            expiry_status: getExpiryStatus(daysUntilExpiry)
-          };
-        });
-        
-        return { ...response.data, data: batches };
-      }
-      
       return response.data;
     } catch (error) {
       console.error('Get batches error:', error);
@@ -96,21 +78,6 @@ export const batchService = {
   getById: async (id: number) => {
     try {
       const response = await axiosInstance.get(`/batches/${id}`);
-      
-      if (response.data.success) {
-        const batch = response.data.data;
-        const daysUntilExpiry = calculateDaysUntilExpiry(batch.expiry_date);
-        
-        return {
-          ...response.data,
-          data: {
-            ...batch,
-            days_until_expiry: daysUntilExpiry,
-            expiry_status: getExpiryStatus(daysUntilExpiry)
-          }
-        };
-      }
-      
       return response.data;
     } catch (error) {
       console.error('Get batch error:', error);
@@ -118,13 +85,21 @@ export const batchService = {
     }
   },
 
-  // Get batches by medicine
+  // Get batches by medicine - FIXED: Better error handling and response parsing
   getByMedicine: async (medicineId: number) => {
     try {
+      console.log('Calling API for medicine batches:', medicineId);
       const response = await axiosInstance.get(`/medicines/${medicineId}/batches`);
+      console.log('Raw API response:', response.data);
       
+      // Handle different response structures
       if (response.data.success) {
-        const batches = (response.data.data?.batches || []).map((batch: Batch) => {
+        // Check where the batches are in the response
+        const batches = response.data.data?.batches || response.data.data || [];
+        console.log('Extracted batches:', batches);
+        
+        // Calculate days until expiry for each batch
+        const processedBatches = batches.map((batch: Batch) => {
           const daysUntilExpiry = calculateDaysUntilExpiry(batch.expiry_date);
           return {
             ...batch,
@@ -133,40 +108,25 @@ export const batchService = {
           };
         });
         
-        return {
-          ...response.data,
-          data: {
-            ...response.data.data,
-            batches
-          }
+        return { 
+          success: true, 
+          data: { 
+            batches: processedBatches 
+          } 
         };
       }
       
-      return response.data;
+      return { success: false, data: { batches: [] } };
     } catch (error) {
       console.error('Get medicine batches error:', error);
-      throw error;
+      return { success: false, data: { batches: [] } };
     }
   },
 
-  // Get expiring batches (within next 180 days = 6 months)
-  getExpiring: async (days: number = 180) => {
+  // Get expiring batches
+  getExpiring: async (days: number = 90) => {
     try {
       const response = await axiosInstance.get('/batches/expiring', { params: { days } });
-      
-      if (response.data.success) {
-        const batches = (response.data.data || []).map((batch: Batch) => {
-          const daysUntilExpiry = calculateDaysUntilExpiry(batch.expiry_date);
-          return {
-            ...batch,
-            days_until_expiry: daysUntilExpiry,
-            expiry_status: getExpiryStatus(daysUntilExpiry)
-          };
-        });
-        
-        return { ...response.data, data: batches };
-      }
-      
       return response.data;
     } catch (error) {
       console.error('Get expiring batches error:', error);
