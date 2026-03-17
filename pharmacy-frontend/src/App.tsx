@@ -3,12 +3,6 @@ import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { CartProvider } from './context/CartContext';
-declare const process: {
-  env: {
-    NODE_ENV: string;
-  };
-};
-
 
 // Layout
 import MainLayout from './components/layout/MainLayout';
@@ -19,19 +13,17 @@ import Medicines from './pages/medicines/Medicines';
 import MedicineDetail from './pages/medicines/MedicineDetail';
 import Inventory from './pages/inventory/Inventory';
 import Batches from './pages/inventory/Batches';
+import WastagePage from './pages/inventory/Wastage';
 import Customers from './pages/customers/Customers';
 import Suppliers from './pages/suppliers/Suppliers';
 import Sales from './pages/sales/Sales';
 import CheckoutSimple from './pages/sales/CheckoutSimple';
 import Invoice from './pages/sales/Invoice';
-import Reports from './pages/reports/Reports';
+import Reports, { ReportDashboard } from './pages/reports/Reports';
+import SalesReport from './pages/reports/SalesReport';
+import InventoryReport from './pages/reports/InventoryReport';
+import ExpiryReport from './pages/reports/ExpiryReport';
 import Login from './pages/auth/Login';
-import Wastage from './pages/inventory/Wastage';
-import WastagePage from './pages/inventory/Wastage';
-
-
-
-
 
 const queryClient = new QueryClient();
 
@@ -52,6 +44,7 @@ function App() {
               <Route path="inventory">
                 <Route index element={<Inventory />} />
                 <Route path="batches" element={<Batches />} />
+                <Route path="wastage" element={<WastagePage />} />
               </Route>
               <Route path="customers" element={<Customers />} />
               <Route path="suppliers" element={<Suppliers />} />
@@ -60,13 +53,13 @@ function App() {
                 <Route path="checkout" element={<CheckoutSimple />} />
                 <Route path="invoice/:invoiceNumber" element={<Invoice />} />
               </Route>
-              <Route path="reports" element={<Reports />} />
-              <Route path="inventory/wastage" element={<Wastage />} />
-              <Route path="inventory/wastage" element={<WastagePage />} />
+              <Route path="reports" element={<Reports />}>
+                <Route index element={<ReportDashboard />} />
+                <Route path="sales" element={<SalesReport />} />
+                <Route path="inventory" element={<InventoryReport />} />
+                <Route path="expiry" element={<ExpiryReport />} />
               </Route>
-               <Route path="customers" element={<Customers />} />
-               <Route path="suppliers" element={<Suppliers />} />
-              <Route path="reports" element={<Reports />} />
+            </Route>
           </Routes>
         </Router>
         <Toaster position="top-right" />

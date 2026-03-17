@@ -365,6 +365,24 @@ export const getExpiringBatches = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: 'Server Error' });
   }
 };
+// @desc    Get total active batches count
+// @route   GET /api/batches/count
+// @access  Public
+export const getBatchCount = async (req: Request, res: Response) => {
+  try {
+    const count = await Batch.count({
+      where: { is_active: true }
+    });
+    
+    res.json({
+      success: true,
+      data: count
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
 
 // @desc    Adjust stock (add or remove)
 // @route   PATCH /api/batches/:id/stock

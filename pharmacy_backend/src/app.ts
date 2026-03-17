@@ -19,6 +19,8 @@ import customerRoutes from './routes/customer.routes';
 
 
 
+
+
 dotenv.config();
 
 const app: Application = express();
@@ -50,7 +52,6 @@ app.use('/api/wastage', wastageRoutes);
 app.use('/api/returns', returnRoutes);
 app.use('/api/supplier-orders', supplierOrderRoutes);
 app.use('/api/customers', customerRoutes);
-
 
 
 

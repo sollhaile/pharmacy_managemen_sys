@@ -8,7 +8,8 @@ import {
   deleteBatch,
   getMedicineBatches,
   getExpiringBatches,
-  adjustStock
+  adjustStock,
+  getBatchCount
 } from '../controllers/batch.controller';
 import {
   createBatchValidator,
@@ -20,7 +21,8 @@ import {
 } from '../validators/batch.validator';
 
 const router = Router();
-
+//GET /api/batches/count - Get total batch count (MUST be before /:id)
+router.get('/count', getBatchCount);
 // GET /api/batches/expiring - Get expiring soon batches (MUST be before /:id)
 router.get('/expiring', expiringBatchesValidator, getExpiringBatches);
 

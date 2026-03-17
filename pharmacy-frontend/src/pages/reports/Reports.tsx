@@ -1,181 +1,354 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import {
-  DocumentChartBarIcon,
-  CurrencyDollarIcon,
+  ChartBarIcon,
   CubeIcon,
-  ExclamationTriangleIcon,
-  ArrowDownTrayIcon,
-  CalendarIcon,
+  ClockIcon,
+  CurrencyDollarIcon,
+  DocumentChartBarIcon
 } from '@heroicons/react/24/outline';
 import Card from '../../components/common/Card';
-import Button from '../../components/common/Button';
+import Spinner from '../../components/common/Spinner';
 import Badge from '../../components/common/Badge';
+import axiosInstance from '../../services/api/axios';
+import { dashboardService } from '../../services/api/dashboard.service';
+import { medicineService } from '../../services/api/medicine.service';
+import { supplierService } from '../../services/api/supplier.service';
+import SalesReport from './SalesReport';
+import InventoryReport from './InventoryReport';
+import ExpiryReport from './ExpiryReport';
 
-const Reports: React.FC = () => {
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
+// Export the Dashboard component so it can be used in routes
+export const ReportDashboard: React.FC = () => {
+  const [loading, setLoading] = useState(true);
+  const [expiringData, setExpiringData] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalMedicines: 0,
+    totalBatches: 0,
+    totalCustomers: 0,
+    totalSuppliers: 0,
+    salesToday: 0,
+    salesMonth: 0,
+    lowStock: 0,
+    expiringSoon: 0,
+    expiringValue: 0
   });
 
-  const reportCategories = [
-    {
-      title: 'Sales Reports',
-      icon: CurrencyDollarIcon,
-      color: 'bg-green-100 text-green-600',
-      reports: [
-        { name: 'Daily Sales Summary', path: '/reports/sales/daily', description: 'View daily sales totals' },
-        { name: 'Monthly Sales Report', path: '/reports/sales/monthly', description: 'Monthly revenue and profit' },
-        { name: 'Sales by Medicine', path: '/reports/sales/by-medicine', description: 'Top selling products' },
-        { name: 'Sales by Customer', path: '/reports/sales/by-customer', description: 'Customer purchase history' },
-      ]
-    },
-    {
-      title: 'Inventory Reports',
-      icon: CubeIcon,
-      color: 'bg-blue-100 text-blue-600',
-      reports: [
-        { name: 'Current Stock Levels', path: '/reports/inventory/stock', description: 'All current inventory' },
-        { name: 'Low Stock Alert', path: '/reports/inventory/low-stock', description: 'Items below reorder level' },
-        { name: 'Expiry Report', path: '/reports/inventory/expiry', description: 'Batches expiring soon' },
-        { name: 'Inventory Valuation', path: '/reports/inventory/valuation', description: 'Total stock value' },
-      ]
-    },
-    {
-      title: 'Financial Reports',
-      icon: DocumentChartBarIcon,
-      color: 'bg-purple-100 text-purple-600',
-      reports: [
-        { name: 'Profit & Loss', path: '/reports/financial/pl', description: 'Revenue vs expenses' },
-        { name: 'Cash Flow', path: '/reports/financial/cashflow', description: 'Money in and out' },
-        { name: 'Wastage Losses', path: '/reports/financial/wastage', description: 'Loss from expired/damaged' },
-        { name: 'Supplier Payments', path: '/reports/financial/suppliers', description: 'Amount owed to suppliers' },
-      ]
-    },
-    {
-      title: 'Expiry Reports',
-      icon: ExclamationTriangleIcon,
-      color: 'bg-red-100 text-red-600',
-      reports: [
-        { name: 'Expiring Soon (30 days)', path: '/reports/expiry/30-days', description: 'Critical batches' },
-        { name: 'Expiring Soon (90 days)', path: '/reports/expiry/90-days', description: 'Warning batches' },
-        { name: 'Expired Batches', path: '/reports/expiry/expired', description: 'Already expired' },
-        { name: 'Wastage History', path: '/reports/expiry/wastage', description: 'All written-off items' },
-      ]
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch data from multiple endpoints
+      const [summaryRes, medicinesRes, suppliersRes, batchesRes, expiringRes] = await Promise.all([
+        dashboardService.getSummary(),
+        medicineService.getAll(),
+        supplierService.getAll(),
+        axiosInstance.get('/batches/count').catch(() => ({ data: { data: 0 } })),
+        axiosInstance.get('/batches/expiring?days=90').catch(() => ({ data: { data: [] } }))
+      ]);
+
+      // Calculate expiring value
+      const expiringBatches = expiringRes.data?.data || [];
+      const expiringValue = expiringBatches.reduce((sum: number, batch: any) => {
+        return sum + (batch.quantity * (batch.cost_price || 0));
+      }, 0);
+
+      setExpiringData(expiringBatches);
+
+      setStats({
+        totalMedicines: summaryRes.data?.counts?.medicines || 0,
+        totalBatches: batchesRes.data?.data || 0,
+        totalCustomers: summaryRes.data?.counts?.customers || 0,
+        totalSuppliers: suppliersRes.data?.length || 0,
+        salesToday: summaryRes.data?.sales?.today || 0,
+        salesMonth: summaryRes.data?.sales?.month || 0,
+        lowStock: summaryRes.data?.counts?.low_stock || 0,
+        expiringSoon: expiringBatches.length || 0,
+        expiringValue
+      });
+
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'ETB',
+      minimumFractionDigits: 2,
+    }).format(value || 0);
+  };
+
+  const formatNumber = (value: number) => {
+    return new Intl.NumberFormat('en-US').format(value || 0);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Sales Summary Card */}
+        <Link to="/reports/sales">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer group">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
+                  Sales Report
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Revenue, profit, top products, and customer analytics
+                </p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                <CurrencyDollarIcon className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500">Today</p>
+                <p className="text-sm font-medium">{formatCurrency(stats.salesToday)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Month</p>
+                <p className="text-sm font-medium">{formatCurrency(stats.salesMonth)}</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        {/* Inventory Summary Card */}
+        <Link to="/reports/inventory">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer group">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
+                  Inventory Report
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Stock value, category breakdown, low stock alerts
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
+                <CubeIcon className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500">Total Medicines</p>
+                <p className="text-sm font-medium">{formatNumber(stats.totalMedicines)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Low Stock</p>
+                <p className="text-sm font-medium text-yellow-600">{formatNumber(stats.lowStock)}</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        {/* Expiry Summary Card */}
+        <Link to="/reports/expiry">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer group">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
+                  Expiry Report
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Expiring batches, value at risk, status distribution
+                </p>
+              </div>
+              <div className="p-3 bg-red-100 rounded-lg group-hover:bg-red-200 transition-colors">
+                <ClockIcon className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500">Expiring Soon</p>
+                <p className="text-sm font-medium text-red-600">{formatNumber(stats.expiringSoon)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Value at Risk</p>
+                <p className="text-sm font-medium text-red-600">{formatCurrency(stats.expiringValue)}</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        {/* Quick Stats Card */}
+        <Card>
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">Quick Stats</h3>
+              <p className="text-sm text-gray-500 mt-1">Key metrics at a glance</p>
+            </div>
+            <div className="p-3 bg-purple-100 rounded-lg">
+              <DocumentChartBarIcon className="w-6 h-6 text-purple-600" />
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-500">Total Medicines</p>
+              <p className="text-sm font-medium">{formatNumber(stats.totalMedicines)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Total Batches</p>
+              <p className="text-sm font-medium">{formatNumber(stats.totalBatches)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Total Customers</p>
+              <p className="text-sm font-medium">{formatNumber(stats.totalCustomers)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Total Suppliers</p>
+              <p className="text-sm font-medium">{formatNumber(stats.totalSuppliers)}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Expiring Soon Preview */}
+      {expiringData.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Expiring Soon (Next 90 Days)</h3>
+            <Link to="/reports/expiry" className="text-sm text-blue-600 hover:text-blue-800">
+              View Full Report →
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Medicine</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Batch</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Expiry Date</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Days Left</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Quantity</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Value</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {expiringData.slice(0, 5).map((batch: any) => {
+                  const daysLeft = batch.days_until_expiry;
+                  const value = batch.quantity * (batch.cost_price || 0);
+                  
+                  let statusColor = 'bg-green-100 text-green-800';
+                  if (daysLeft <= 30) statusColor = 'bg-red-100 text-red-800';
+                  else if (daysLeft <= 60) statusColor = 'bg-yellow-100 text-yellow-800';
+                  
+                  return (
+                    <tr key={batch.batch_id}>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                        {batch.batch_medicine?.name || 'Unknown'}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-500">
+                        {batch.batch_number}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900 text-right">
+                        {new Date(batch.expiry_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900 text-right">
+                        {daysLeft}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900 text-right">
+                        {batch.quantity}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900 text-right">
+                        {formatCurrency(value)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+                          {daysLeft <= 30 ? 'Critical' : daysLeft <= 60 ? 'Warning' : 'Monitoring'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+const Reports: React.FC = () => {
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(() => {
+    if (location.pathname.includes('sales')) return 'sales';
+    if (location.pathname.includes('inventory')) return 'inventory';
+    if (location.pathname.includes('expiry')) return 'expiry';
+    return 'dashboard';
+  });
+
+  const tabs = [
+    { id: 'dashboard', name: 'Dashboard', icon: ChartBarIcon, path: '/reports' },
+    { id: 'sales', name: 'Sales Report', icon: CurrencyDollarIcon, path: '/reports/sales' },
+    { id: 'inventory', name: 'Inventory Report', icon: CubeIcon, path: '/reports/inventory' },
+    { id: 'expiry', name: 'Expiry Report', icon: ClockIcon, path: '/reports/expiry' }
   ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Generate and view business reports
+          Comprehensive business insights with interactive charts and detailed analytics
         </p>
       </div>
 
-      {/* Date Range Selector */}
-      <Card>
-        <div className="flex items-end gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={dateRange.startDate}
-              onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              End Date
-            </label>
-            <input
-              type="date"
-              value={dateRange.endDate}
-              onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-          </div>
-          <Button
-            variant="primary"
-            icon={<CalendarIcon className="w-4 h-4" />}
-          >
-            Apply
-          </Button>
+      {/* Navigation Tabs */}
+      <Card className="p-2">
+        <div className="flex flex-wrap gap-2">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            
+            return (
+              <Link
+                key={tab.id}
+                to={tab.path}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${isActive 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                  }
+                `}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.name}
+              </Link>
+            );
+          })}
         </div>
       </Card>
 
-      {/* Report Categories */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {reportCategories.map((category) => (
-          <Card key={category.title}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`p-2 rounded-lg ${category.color.split(' ')[0]}`}>
-                <category.icon className={`w-5 h-5 ${category.color.split(' ')[1]}`} />
-              </div>
-              <h2 className="text-lg font-medium text-gray-900">{category.title}</h2>
-            </div>
-            <div className="space-y-3">
-              {category.reports.map((report) => (
-                <div
-                  key={report.name}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{report.name}</p>
-                    <p className="text-xs text-gray-500">{report.description}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<ArrowDownTrayIcon className="w-4 h-4" />}
-                    onClick={() => {
-                      toast.success('Report generation coming soon');
-                    }}
-                  >
-                    Generate
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Quick Stats */}
-      <Card>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Stats</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <p className="text-sm text-gray-500">Today's Sales</p>
-            <p className="text-xl font-semibold text-gray-900">ETB 0.00</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Month to Date</p>
-            <p className="text-xl font-semibold text-gray-900">ETB 0.00</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Low Stock Items</p>
-            <p className="text-xl font-semibold text-red-600">0</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Expiring Soon</p>
-            <p className="text-xl font-semibold text-yellow-600">0</p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Note about implementation */}
-      <Card className="bg-blue-50 border border-blue-200">
-        <p className="text-sm text-blue-700">
-          <strong>Note:</strong> Detailed report pages are under development. 
-          These will include charts, export options (PDF/Excel), and detailed analytics.
-        </p>
-      </Card>
+      {/* Report Routes */}
+      <Routes>
+        <Route path="/" element={<ReportDashboard />} />
+        <Route path="/sales" element={<SalesReport />} />
+        <Route path="/inventory" element={<InventoryReport />} />
+        <Route path="/expiry" element={<ExpiryReport />} />
+      </Routes>
     </div>
   );
 };

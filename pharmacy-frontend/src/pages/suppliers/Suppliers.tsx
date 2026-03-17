@@ -17,6 +17,7 @@ import Input from '../../components/common/Input';
 import Badge from '../../components/common/Badge';
 import Spinner from '../../components/common/Spinner';
 import Modal from '../../components/common/Modal';
+import SupplierOrderModal from '../../components/forms/SupplierOrderModal';
 import { supplierService } from '../../services/api/supplier.service';
 import { Supplier, SupplierFormData } from '../../types/supplier.types';
 
@@ -26,6 +27,8 @@ const Suppliers: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
+  const [selectedSupplierForOrder, setSelectedSupplierForOrder] = useState<Supplier | null>(null);
   const [formData, setFormData] = useState<SupplierFormData>({
     name: '',
     contact_person: '',
@@ -87,6 +90,15 @@ const Suppliers: React.FC = () => {
   const handleDelete = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
     setDeleteModalOpen(true);
+  };
+
+  const handleOrder = (supplier: Supplier) => {
+    if (!supplier.email) {
+      toast.error('Supplier does not have an email address. Please add an email first.');
+      return;
+    }
+    setSelectedSupplierForOrder(supplier);
+    setOrderModalOpen(true);
   };
 
   const handleSubmit = async () => {
@@ -220,13 +232,12 @@ const Suppliers: React.FC = () => {
 
               <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end gap-2">
                 <Button
-                  variant="secondary"
+                  variant="primary"
                   size="sm"
-                  icon={<ShoppingCartIcon className="w-4 h-4" />}
-                  onClick={() => {
-                    // Navigate to purchase order page
-                    toast.success('Purchase order feature coming soon');
-                  }}
+                  icon={<EnvelopeIcon className="w-4 h-4" />}
+                  onClick={() => handleOrder(supplier)}
+                  disabled={!supplier.email}
+                  title={!supplier.email ? "Supplier needs an email address" : "Send purchase order"}
                 >
                   Order
                 </Button>
@@ -328,6 +339,18 @@ const Suppliers: React.FC = () => {
           This action cannot be undone.
         </p>
       </Modal>
+
+      {/* Order Modal */}
+      <SupplierOrderModal
+        isOpen={orderModalOpen}
+        onClose={() => {
+          setOrderModalOpen(false);
+          setSelectedSupplierForOrder(null);
+        }}
+        supplierId={selectedSupplierForOrder?.supplier_id || 0}
+        supplierName={selectedSupplierForOrder?.name || ''}
+        supplierEmail={selectedSupplierForOrder?.email || ''}
+      />
     </div>
   );
 };
